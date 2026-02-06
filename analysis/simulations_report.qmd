@@ -1,0 +1,110 @@
+---
+title: "BIOS 731 HW 2: Simulation Studies"
+format: 
+  pdf:
+    number-depth: 4
+    mainfont: Times New Roman
+    include-in-header:
+      - text: |
+          \usepackage{makecell}
+          \usepackage{longtable}
+          \usepackage{mathrsfs}
+    df-print: kable
+    knitr:
+      opts_chunk:
+        echo: true,
+        include: true
+        message: false
+        warning: false
+        results: markup
+        fig.align: center
+        fig.height: 5
+        fig.width: 7
+        fig.path: "../results/"
+        R.options:
+          scipen: 999
+          knitr.kable.NA: ""
+editor: source
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+# Clear memory
+rm(list = ls()); gc()
+
+# Load packages
+if(!require("here")) install.packages("here")
+if(!require("pacman")) install.packages("pacman")
+pacman::p_load(
+  
+  gtools, tidyverse, magrittr,
+  knitr, kableExtra, broom
+)
+```
+
+```{r}
+#| label: source functions
+
+source(here::here("source", "01_simulate_data.R"))
+source(here::here("source", "02_apply_methods.R"))
+source(here::here("source", "03_extract_estimates.R"))
+```
+
+
+# Problem 1.1: ADEMP Structure
+
+* *A*: 
+* *D*: 
+* *E*: 
+* *M*: 
+* *P*: 
+
+# Problem 1.2: nSim
+
+```{r}
+#| label: calculate simulations
+
+nSim <- 1000
+```
+
+
+# Problem 1.3: Implementation
+
+```{r}
+#| label: define parameters
+
+# Define sample size, treatment effect, error distribution
+data_n <- c(10, 50, 100)
+beta_true <- c(0, 0.5, 2)
+error_dist <- c("gauss", "t")
+
+# Combine these into table
+params <- expand_grid(data_n, beta_true, error_dist)
+
+# Set bootstrap numbers
+boot_outer <- 500
+boot_inner <- 100
+
+### Define seeds
+
+# Count number of randomization steps we will perform
+# -> For each scenario: n simulations, 1 data set, B_outer bootstrap samples per data set, B_inner resamples per outer sample
+num_sims <- nrow(params) * nSim * (1 + boot_outer * boot_inner)
+
+# -> We will use 1 seed per outer data set
+num_seeds <- nrow(params) * nSim
+
+# Set initial seed, outside of next range
+set.seed(num_seeds + 978)
+
+# Randomize order of other seeds
+seeds <- sample(1:num_seeds, num_seeds)
+
+# Organize these by simulation step
+seed_list <- split(seeds, 
+                   cut(1:num_seeds, 
+                       breaks = nrow(params)))
+```
+
