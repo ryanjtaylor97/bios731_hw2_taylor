@@ -39,7 +39,7 @@ if(!require("here")) install.packages("here")
 if(!require("pacman")) install.packages("pacman")
 pacman::p_load(
   
-  gtools, tidyverse, magrittr,
+  gtools, tictoc, tidyverse, magrittr,
   knitr, kableExtra, broom
 )
 ```
@@ -55,20 +55,48 @@ source(here::here("source", "03_extract_estimates.R"))
 
 # Problem 1.1: ADEMP Structure
 
-* *A*: 
-* *D*: 
-* *E*: 
-* *M*: 
-* *P*: 
+* *A*: The goal of this simulation study is to evaluate the accuracy of a linear regression to estimate a binary treatment effect. We also want to compare the coverage and computational efficiency of three methods of estimating a 95\% confidence interval around the treatment effect estimates: a Wald confidence interval, a bootstrap percentile interval, and a bootstrap $t$ interval. All of these methods should generate intervals that cover the true treatment effect in at least 95\% of simulations.
+
+* *D*: We generate data under the assumption 
+$$
+Y_i = \beta_0 + \beta_{treat} X_i + \epsilon_i
+$$
+
+for $i = 1, \ldots, n$.
+
+In all scenarios, $X_i$ is a binary variable that we randomly generate with $P(X_i = 1) = 0.5$, and we set $\beta_0 = 1$.
+
+We set up a full factorial simulation design with the alternatives:
+
+$n = 10, \ 50, \text{ or } 500$;
+
+$\beta_{treat} = 0, \ 0.5, \text{ or } 2$;
+
+$\epsilon_i {\overset{iid}{\sim}} N(0,2) \text{ or } \epsilon_i = u * \sqrt{2*\frac{\nu - 2}{\nu}}, \text{ where } u {\overset{iid}{\sim}} t_\nu \text{ and } \nu = 3$.
+
+Therefore, we include **18** total scenarios.
+
+* *E*: We are trying to learn about one estimand through this study: $\hat{\beta}_{treat}$ from a linear regression.
+
+* *M*: We are evaluating one method for a point estimate $\hat{\beta}_{treat}$, which is linear regression. We are then comparing three methods for a confidence interval around this estimand: a Wald confidence interval, a bootstrap percentile confidence interval, and a bootstrap $t$ confidence interval.
+
+* *P*: We will evaluate $\hat{\beta}_{treat}$ using its bias. We will compare the three methods for the confidence interval based on coverage and computation speed.
+
 
 # Problem 1.2: nSim
 
 ```{r}
 #| label: calculate simulations
 
-nSim <- 1000
+# Define desired coverage and max Monte Carlo error
+ci_pct <- 0.95
+mcse_max <- 0.01
+
+# Calculate necessary simulations
+nSim <- ci_pct * (1 - ci_pct) / (mcse_max)^2
 ```
 
+Based on desired coverage of 95\% with a maximum Monte Carlo standard error of 1\%, we should perform `r nSim` simulations for each scenario.
 
 # Problem 1.3: Implementation
 
@@ -93,8 +121,8 @@ boot_inner <- 100
 # -> For each scenario: n simulations, 1 data set, B_outer bootstrap samples per data set, B_inner resamples per outer sample
 num_sims <- nrow(params) * nSim * (1 + boot_outer * boot_inner)
 
-# -> We will use 1 seed per outer data set
-num_seeds <- nrow(params) * nSim
+# -> We will use 1 seed per bootstrap
+num_seeds <- nrow(params) * nSim * (1 + boot_outer)
 
 # Set initial seed, outside of next range
 set.seed(num_seeds + 978)
@@ -103,8 +131,39 @@ set.seed(num_seeds + 978)
 seeds <- sample(1:num_seeds, num_seeds)
 
 # Organize these by simulation step
-seed_list <- split(seeds, 
-                   cut(1:num_seeds, 
-                       breaks = nrow(params)))
+seed_list <- split(
+  seeds, 
+  cut(1:num_seeds, breaks = nrow(params))
+) %>% 
+  map(~split(.x, cut(1:length(.x), breaks = nSim)))
+```
+
+
+
+```{r}
+#| label: test model fit time
+
+set.seed(num_seeds + 413)
+
+test_df <- get_simdata(n = max(data_n),
+                       beta_treat = max(beta_true),
+                       variance = 2,
+                       error_dist = "gauss")
+
+tibble(
+  lm = coef(fit_model_lm(test_df)),
+  lm.fit = coef(fit_model_lm_fit(x_mat = matrix(cbind(1, test_df$x), 
+                                             nrow = nrow(test_df)), 
+                              y_vec = test_df$y))
+)
+
+bench <- microbenchmark::microbenchmark(
+  "lm" = coef(fit_model_lm(test_df))[2],
+  "coef_lm.fit" =  coef(fit_model_lm_fit(x_mat = matrix(cbind(1, test_df$x), 
+                                                     nrow = nrow(test_df)), 
+                                      y_vec = test_df$y))[2]
+  )
+
+bench
 ```
 
