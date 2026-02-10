@@ -5,8 +5,8 @@
 
 # Note: set parameters and seeds in report file
 
-# Set parameter row number
-p <- 1
+tic.clear()
+tic.clearlog()
 
 tic("Full Scenario")
 
@@ -19,6 +19,8 @@ error_spec <- params$error_dist[p]
 results = as.list(rep(NA, nSim))
 
 for(s in 1:nSim){
+
+  if(s %% 25 == 0){ cat("At simulation #", s, "\n") }
 
   set.seed(seed_list[[p]][[s]][1])
 
@@ -56,32 +58,32 @@ for(s in 1:nSim){
   coef_lm <- get_coef_lm(fit_wald)
 
   # Function combines model fit and
-  res_2 <- get_estimates_boot_pct(x_mat = x_in, y_vec = y_in,
-                                  n_perm = boot_outer,
-                                  seeds = seed_list[[p]][[s]][-1])
+  res_pct <- get_estimates_boot_pct(x_mat = x_in, y_vec = y_in,
+                                    n_perm = boot_outer,
+                                    seeds = seed_list[[p]][[s]][-1])
 
   # Add original estimate to make similar to Wald dataset
-  res_2 %<>%
+  res_pct %<>%
     mutate(term = "x",
-           beta_hat = coef_boot)
+           beta_hat = coef_lm)
 
   toc(quiet = T, log = T)
 
   tic("Bootstrap t")
 
   # 3) As a separate step (with same seeds), run bootstrap t
-  res_3 <- get_estimates_boot_t(x_mat = x_in, y_vec = y_in,
+  res_t <- get_estimates_boot_t(x_mat = x_in, y_vec = y_in,
                                 beta_orig = coef_lm,
                                 n_perm_out = boot_outer, n_perm_in = boot_inner,
                                 seeds = seed_list[[p]][[s]][-1])
 
-  res_3 %<>% mutate(term = "x")
+  res_t %<>% mutate(term = "x")
 
   toc(quiet = T, log = T)
 
   # Combine these and save
-  results[[s]] <- bind_rows(res_1, res_2, res_3) %>%
-    mutate(sim_num = s)
+  results[[s]] <- bind_rows(res_wald, res_pct, res_t) %>%
+    mutate(sim_num = s, .before = everything())
 
 }
 
@@ -107,7 +109,8 @@ timing <- bind_rows(
            tibble(step = x$msg,
                   time = x$toc - x$tic)
            }
-         ))
+         )) %>%
+  mutate(scenario = p, .before = everything())
 
 save(timing,
      file = here::here("data", paste0("timing_scenario_", p_name, ".rda")))

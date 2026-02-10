@@ -10,7 +10,7 @@ get_estimates_lm <- function(model_fit){
     filter(term == "x") %>%
     rename(beta_hat = estimate) %>%
     mutate(method = "Wald") %>%
-    select(method, term, beta_hat, conf.low, conf.high)
+    select(method, term, beta_hat, std.error, conf.low, conf.high)
 
 }
 
@@ -52,8 +52,10 @@ get_estimates_boot_pct <- function(x_mat, y_vec,
   # Return tibble of confidence interval
   tibble(
     method = "Boot Pct",
-    conf.low = quantile(beta_hats, 0.025),
-    conf.high = quantile(beta_hats, 0.975)
+    std.error = sd(beta_hats, na.rm = T),
+    conf.low = quantile(beta_hats, 0.025, na.rm = T),
+    conf.high = quantile(beta_hats, 0.975, na.rm = T),
+    n_boot_est = sum(!is.na(beta_hats))
     )
 }
 
@@ -76,7 +78,7 @@ get_estimates_boot_t <- function(x_mat, y_vec, beta_orig,
     set.seed(seeds[b])
 
     # Sample row indices
-    sample_b <- sample.int(nrow(x_mat), replace = F)
+    sample_b <- sample.int(nrow(x_mat), replace = T)
 
     # Define new x based on these indices
     x_b <- x_mat[sample_b,]
@@ -90,16 +92,18 @@ get_estimates_boot_t <- function(x_mat, y_vec, beta_orig,
     # Isolate x coefficient
     beta_hat_b <- get_coef_lm(b_fit)
 
+    if(is.na(beta_hat_b)){ next }
+
     # Save x coefficient to vector
     beta_hats[b] <- beta_hat_b
 
     # Initialize vector of interior estimates
     beta_hats_inner <- rep(NA, n_perm_in)
 
-    for(k in n_perm_in){
+    for(k in 1:n_perm_in){
 
       # Sample row indices
-      sample_k <- sample(sample_b, size = length(sample_b), replace = F)
+      sample_k <- sample(sample_b, size = length(sample_b), replace = T)
 
       # Define new x based on these indices
       x_k <- x_b[sample_k,]
@@ -118,20 +122,22 @@ get_estimates_boot_t <- function(x_mat, y_vec, beta_orig,
     }
 
     # Estimate standard error
-    se_b <- sd(beta_hats_inner)
-
-    # Calculate t
-    t_vec[b] <- (beta_hat_b - beta_orig) / se_b
+    beta_sds[b] <- sd(beta_hats_inner, na.rm = T)
   }
 
+  # Calculate t statistics
+  t_vec <- (beta_hats - beta_orig) / beta_sds
+
   # Calculate standard error of all beta hats
-  se_boot <- sd(beta_hats)
+  se_boot <- sd(beta_hats, na.rm = T)
 
   # Return tibble of confidence interval
   tibble(
     method = "Boot t",
     beta_hat = beta_orig,
-    conf.low = beta_orig - se_boot * quantile(t_vec, 0.025),
-    conf.high = beta_orig + se_boot * quantile(t_vec, 0.025)
+    conf.low = beta_orig - se_boot * quantile(t_vec, 0.975, na.rm = T),
+    conf.high = beta_orig - se_boot * quantile(t_vec, 0.025, na.rm = T),
+    std.error = se_boot,
+    n_boot_est = sum(!is.na(t_vec))
   )
 }
