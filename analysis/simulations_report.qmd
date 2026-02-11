@@ -75,6 +75,11 @@ run_sim_scenario <- function(index){
 }
 ```
 
+# Problem 0: Reproducibility
+
+The GitHub repository containing this work can be found at
+
+<https://github.com/ryanjtaylor97/bios731_hw2_taylor>.
 
 # Problem 1.1: ADEMP Structure
 
@@ -470,3 +475,12 @@ width_plot
 
 # Problem 1.5: Discussion
 
+This simulation study first verifies that linear regression is relatively unbiased when estimating a treatment effect corresponding to a binary variable. We find that the bias of our estimates is low across all scenarios, and is close to 0 more frequently as the data sample size increases. Second, we find that the Wald and bootstrap t methods for constructing a confidence interval have better coverage than the bootstrap percentile method, especially when the data sample size is small. When the data is large, all three methods achieve coverage of at least 92.2\%. Notably, however, the bootstrap t confidence intervals are larger on average, and therefore likely have less power.
+
+In terms of computation time, the Wald confidence interval is fastest, and the bootstrap percentile method takes about 3 times as long. The bootstrap t method is by far the slowest, and takes almost 100 times the time of the bootstrap percentile method.
+
+When $\epsilon_i \sim N(0,2)$, the bootstrap t interval typically provides better coverage. The Wald confidence interval provides slightly less coverage, but is a much more narrow interval.
+
+When the data are generated with heavy-tailed errors, the Wald standard error most commonly provides the best coverage in our simulation. The bootstrap t provides the best coverage when the data sample size is 10. This may indicate that the Central Limit Theorem assumptions behind the Wald interval are not satisfied when the data has only 10 observations.
+
+The bootstrap percentile method performed the worst out of these three methods, but seemed to perform better when the true $\beta$ value was farther from 0. The bootstrap t confidence interval most commonly achieved at least 95\% coverage. However, the Wald interval often achieved only slightly less coverage with significantly less computation time and a smaller average interval width. Therefore, a practical recommendation would be to use the bootstrap t interval if type I error is more of a concern and to use the Wald interval in most other contexts. However, a limitation of this study is that both error distributions used are symmetrical, and bootstrap intervals are often more accurate for asymmetrical distributions.

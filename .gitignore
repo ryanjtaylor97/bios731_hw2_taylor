@@ -11,3 +11,4 @@ drafts/*_cache/
 .Ruserdata
 
 data/*.rda
+.Rproj.user
